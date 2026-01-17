@@ -1,0 +1,160 @@
+// Prisma schema defining the multi‑tenant data model for the call center.
+// It captures tenants, users, agents, knowledge bases, calls and usage
+// events. This schema can evolve over time without breaking existing
+// functionality.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id          String       @id @default(uuid())
+  name        String
+  planTier    String       @default("FREE")
+  users       User[]
+  agents      Agent[]
+  contacts    Contact[]
+  calls       Call[]
+  usageEvents UsageEvent[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String   @unique
+  passwordHash String
+  role         String   @default("ADMIN") // roles can be ADMIN, STAFF, etc.
+  agents       Agent[]
+  contacts     Contact[]
+  calls        Call[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Agent {
+  id                String       @id @default(uuid())
+  tenantId          String
+  tenant            Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name              String
+  status            AgentStatus  @default(DRAFT)
+  languageMode      LanguageMode @default(BILINGUAL)
+  voiceProvider     String       @default("ELEVENLABS")
+  voiceId           String
+  twilioPhoneNumber String?      @unique
+  knowledgeBaseId   String?
+  knowledgeBase     KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id])
+  features          Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  calls             Call[]
+}
+
+enum AgentStatus {
+  DRAFT
+  LIVE
+  PAUSED
+}
+
+enum LanguageMode {
+  BILINGUAL
+  ES
+  EN
+}
+
+model KnowledgeBase {
+  id        String            @id @default(uuid())
+  tenantId  String
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent     Agent?
+  agentId   String?           @unique
+  name      String            @default("default")
+  documents KnowledgeDocument[]
+}
+
+model KnowledgeDocument {
+  id             String        @id @default(uuid())
+  knowledgeBaseId String
+  knowledgeBase  KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  title          String
+  content        String
+  createdAt      DateTime      @default(now())
+}
+
+model Call {
+  id          String     @id @default(uuid())
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agentId     String
+  agent       Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?      @relation(fields: [userId], references: [id])
+  twilioCallSid String   @unique
+  fromPhone   String
+  toPhone     String
+  language    String      @default("auto")
+  transcript  String      @default("")
+  summary     String      @default("")
+  status      CallStatus @default(IN_PROGRESS)
+  startedAt   DateTime    @default(now())
+  endedAt     DateTime?
+  turns       CallTurn[]
+}
+
+enum CallStatus {
+  IN_PROGRESS
+  RESOLVED
+  NEEDS_FOLLOWUP
+}
+
+model CallTurn {
+  id       String  @id @default(uuid())
+  callId   String
+  call     Call    @relation(fields: [callId], references: [id], onDelete: Cascade)
+  speaker  Speaker @default(CALLER)
+  text     String
+  createdAt DateTime @default(now())
+}
+
+enum Speaker {
+  CALLER
+  AI
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  phone     String
+  name      String?
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UsageEvent {
+  id        String    @id @default(uuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agentId   String?
+  agent     Agent?    @relation(fields: [agentId], references: [id])
+  type      UsageType
+  amount    Float
+  units     Int?
+  createdAt DateTime   @default(now())
+}
+
+enum UsageType {
+  CALL_MINUTE
+  SMS
+  NUMBER_FEE
+  SUBSCRIPTION
+  OTHER
+}
