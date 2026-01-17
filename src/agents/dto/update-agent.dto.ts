@@ -1,8 +1,52 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateAgentDto } from './create-agent.dto';
+import { IsEnum, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
 
-/**
- * DTO for updating an agent. Inherits validation rules from CreateAgentDto
- * but marks all properties as optional. This allows for partial updates.
- */
-export class UpdateAgentDto extends PartialType(CreateAgentDto) {}
+export enum AgentStatus {
+  DRAFT = 'DRAFT',
+  LIVE = 'LIVE',
+  PAUSED = 'PAUSED',
+}
+
+export enum LanguageMode {
+  EN = 'EN',
+  ES = 'ES',
+  BILINGUAL = 'BILINGUAL',
+}
+
+export enum VoiceProvider {
+  ELEVENLABS = 'ELEVENLABS',
+  TWILIO = 'TWILIO',
+}
+
+export class UpdateAgentDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsEnum(AgentStatus)
+  status?: AgentStatus;
+
+  @IsOptional()
+  @IsEnum(LanguageMode)
+  languageMode?: LanguageMode;
+
+  @IsOptional()
+  @IsEnum(VoiceProvider)
+  voiceProvider?: VoiceProvider;
+
+  @IsOptional()
+  @IsString()
+  voiceId?: string;
+
+  @IsOptional()
+  @IsString()
+  twilioPhoneNumber?: string;
+
+  @IsOptional()
+  @IsUUID()
+  knowledgeBaseId?: string;
+
+  @IsOptional()
+  @IsObject()
+  features?: Record<string, any>;
+}
